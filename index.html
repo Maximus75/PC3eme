@@ -82,6 +82,18 @@ h1.page{font-family:var(--serif);font-size:25px;margin:18px 0 4px}
 .best b{display:block;font-size:17px;color:var(--ok)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:520px){.grid2{grid-template-columns:1fr}}
+.tlist{display:flex;flex-direction:column;gap:12px}
+.tquiz{background:var(--bg2);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:var(--r);
+  padding:13px 14px;box-shadow:var(--shadow-s)}
+.tq-head{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.tq-badge{flex:0 0 auto;width:30px;height:30px;border-radius:9px;background:var(--cl);color:var(--c);display:grid;place-items:center;font-weight:800;font-size:13px}
+.tq-name{font-weight:700;font-size:14.5px;line-height:1.25}
+.tq-btns{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.tq-btn{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;font:inherit;color:inherit;
+  background:var(--bg);border:1.5px solid var(--line);border-radius:11px;padding:10px 12px;cursor:pointer;transition:.13s}
+.tq-btn:hover{border-color:var(--c);background:var(--cl)}
+.tq-btn b{font-size:14px}
+.tq-btn span{font-size:12px;color:var(--ink-soft)}
 
 /* QUIZ RUN */
 .qtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 4px}
@@ -173,7 +185,7 @@ footer.ft{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:30px
     <div id="v-pages"></div>
     <div class="vnav">
       <button class="btn-ghost" id="v-prev">◀ Précédente</button>
-      <button class="test-theme" id="v-test">Tester ce thème ▸</button>
+      <button class="test-theme" id="v-test">Tester cette fiche ▸</button>
       <button class="btn-ghost" id="v-next">Suivante ▶</button>
     </div>
   </section>
@@ -192,7 +204,7 @@ footer.ft{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:30px
     <button class="setcard" id="set-express" data-set="express"></button>
     <button class="setcard" id="set-complete" data-set="complete"></button>
     <h2 class="sect-h">Réviser un thème</h2>
-    <div class="grid2" id="theme-sets"></div>
+    <div id="theme-sets" class="tlist"></div>
   </section>
 
   <!-- QUIZ RUN -->
@@ -319,7 +331,7 @@ function openViewer(t,idx){
 $('#v-back').onclick=()=>{setSeg('cours');show('screen-cours');};
 $('#v-prev').onclick=()=>{if(vw.idx>0)openViewer(vw.t,vw.idx-1);};
 $('#v-next').onclick=()=>{if(vw.idx<fichesByTheme[vw.t].length-1)openViewer(vw.t,vw.idx+1);};
-$('#v-test').onclick=()=>startQuiz('theme'+vw.t);
+$('#v-test').onclick=()=>{const f=fichesByTheme[vw.t][vw.idx];startQuiz('fiche'+f.n);};
 
 /* ---------- BEST SCORES (localStorage) ---------- */
 const BKEY='pc3e_best';
@@ -342,12 +354,17 @@ function buildQuizHome(){
   co.innerHTML=setInner('📚','Révision complète',QUESTIONS.length+' questions, tout le programme',b['complete']);
   const ts=$('#theme-sets');ts.innerHTML='';
   for(const t of [1,2,3,4]){
-    const n=questionsByTheme[t].length;
-    const card=document.createElement('button');card.className='setcard';card.dataset.set='theme'+t;
-    card.style.setProperty('--c',themeColor(t));card.style.setProperty('--cl',themeLight(t));
-    card.innerHTML=setInner('T'+t,'Thème '+t,trim(THEMES[t],38)+' · '+n+' questions',b['theme'+t]);
-    card.onclick=()=>startQuiz('theme'+t);
-    ts.appendChild(card);
+    const n=questionsByTheme[t].length, ex=Math.min(10,n);
+    const row=document.createElement('div');row.className='tquiz';
+    row.style.setProperty('--c',themeColor(t));row.style.setProperty('--cl',themeLight(t));
+    row.innerHTML=`<div class="tq-head"><span class="tq-badge">T${t}</span>
+        <span class="tq-name">${trim(THEMES[t],40)}</span></div>
+      <div class="tq-btns">
+        <button class="tq-btn" data-set="theme${t}express"><b>⚡ Express</b><span>${ex} questions</span></button>
+        <button class="tq-btn" data-set="theme${t}complete"><b>📚 Complet</b><span>${n} questions</span></button>
+      </div>`;
+    row.querySelectorAll('.tq-btn').forEach(btn=>btn.onclick=()=>startQuiz(btn.dataset.set));
+    ts.appendChild(row);
   }
 }
 function trim(s,n){return s.length>n?s.slice(0,n-1)+'…':s;}
@@ -366,7 +383,12 @@ function startQuiz(setId,customList){
   if(setId==='replay'){list=customList;label='Mes erreurs';saveId=null;}
   else if(setId==='express'){list=shuffle(QUESTIONS).slice(0,20);label='Test express';}
   else if(setId==='complete'){list=shuffle(QUESTIONS);label='Révision complète';}
-  else if(setId.startsWith('theme')){const t=+setId.slice(5);list=shuffle(questionsByTheme[t]);label='Thème '+t;}
+  else if(setId.startsWith('fiche')){const n=+setId.slice(5);list=shuffle(QUESTIONS.filter(q=>q.fiche===n));label='Fiche '+n;saveId=null;}
+  else if(setId.startsWith('theme')){
+    const m=setId.slice(5),t=parseInt(m,10),all=shuffle(questionsByTheme[t]);
+    if(m.endsWith('express')){list=all.slice(0,Math.min(10,all.length));label='Thème '+t+' · express';}
+    else{list=all;label='Thème '+t+' · complet';}
+  }
   quiz={list,label,saveId,cur:0,answers:new Array(list.length).fill(null),sel:null,locked:false};
   setSeg('quiz');
   startTimer();
